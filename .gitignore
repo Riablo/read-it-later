@@ -1,0 +1,9 @@
+.DS_Store
+.codex/
+node_modules/
+bun.lockb
+dist/
+logs/
+*.log
+data/*.json
+data/*.tmp

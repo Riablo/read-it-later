@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>稍后阅读</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">本地队列</p>
+          <h1>稍后阅读</h1>
+        </div>
+        <form class="save-form" id="save-form">
+          <label class="sr-only" for="url-input">URL</label>
+          <input id="url-input" name="url" inputmode="url" autocomplete="url" placeholder="https://example.com/article" required>
+          <button class="primary-button" type="submit">
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="icon"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+            <span>保存</span>
+          </button>
+        </form>
+      </header>
+
+      <section class="toolbar" aria-label="列表筛选">
+        <div class="tabs" role="tablist" aria-label="阅读状态">
+          <button class="tab is-active" type="button" role="tab" aria-selected="true" data-status="inbox">
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="icon"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="m5.45 5.11-3.2 6.4A2 2 0 0 0 2 12.4V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6.6a2 2 0 0 0-.25-.89l-3.2-6.4A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+            <span>收件箱</span>
+            <strong id="inbox-count">0</strong>
+          </button>
+          <button class="tab" type="button" role="tab" aria-selected="false" data-status="trash">
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="icon"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            <span>回收站</span>
+            <strong id="trash-count">0</strong>
+          </button>
+        </div>
+        <div class="toolbar-right">
+          <div class="trash-actions" id="trash-actions" hidden>
+            <button class="clear-trash-button" id="clear-trash-button" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24" class="icon"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+              <span>全部清空</span>
+            </button>
+          </div>
+          <div class="status-line" id="status-line" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="list-wrap" aria-label="已保存链接">
+        <div class="empty-state" id="empty-state" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="empty-icon"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"/><path d="M2 15h7l2 3h2l2-3h7"/><path d="M22 15v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3"/></svg>
+          <h2>这里还没有链接</h2>
+          <p>当前列表为空。</p>
+        </div>
+        <div class="item-list" id="item-list"></div>
+      </section>
+    </main>
+
+    <template id="item-template">
+      <article class="link-card">
+        <button class="open-area" type="button">
+          <span class="domain-chip"></span>
+          <span class="link-main">
+            <span class="title"></span>
+            <span class="summary"></span>
+            <span class="meta"></span>
+          </span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="external-icon"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        </button>
+        <button class="restore-button" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24" class="icon"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>恢复</span>
+        </button>
+      </article>
+    </template>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
