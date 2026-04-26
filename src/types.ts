@@ -1,10 +1,14 @@
 export type ItemStatus = "inbox" | "trash";
 
-export interface ReadlaterCliResult {
+export interface FetchedMetadata {
   url: string;
   title?: string;
   summary?: string;
   source?: string;
+  canonical_url?: string;
+  author_name?: string;
+  author_url?: string;
+  site_name?: string;
   fetched_at?: string;
 }
 

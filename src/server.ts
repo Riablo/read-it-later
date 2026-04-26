@@ -1,7 +1,7 @@
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { displayHost, domainLabelFromUrl, normalizeUrl } from "./domain";
-import { cliErrorMessage, fetchUrlMetadata } from "./readlater";
+import { fetchUrlMetadata, metadataErrorMessage } from "./readlater";
 import { clearTrash, getCounts, listItems, moveItem, upsertFetchedItem } from "./store";
 import type { ItemStatus } from "./types";
 
@@ -80,7 +80,7 @@ async function saveUrl(rawUrl: string | null): Promise<Response> {
     const item = await upsertFetchedItem(fetched);
     return redirect(`/?saved=${encodeURIComponent(item.id)}`);
   } catch (error) {
-    return html(savePage("保存失败", cliErrorMessage(error), true), { status: 500 });
+    return html(savePage("保存失败", metadataErrorMessage(error), true), { status: 500 });
   }
 }
 
@@ -134,7 +134,7 @@ async function handleApi(request: Request, url: URL): Promise<Response> {
       const counts = await getCounts();
       return json({ item, counts }, { status: 201 });
     } catch (error) {
-      return json({ error: cliErrorMessage(error) }, { status: 400 });
+      return json({ error: metadataErrorMessage(error) }, { status: 400 });
     }
   }
 

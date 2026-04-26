@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { displayHost, domainLabelFromUrl, normalizeUrl } from "./domain";
-import type { DatabaseFile, ItemStatus, ReadLaterItem, ReadlaterCliResult } from "./types";
+import type { DatabaseFile, FetchedMetadata, ItemStatus, ReadLaterItem } from "./types";
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const defaultDataPath = join(rootDir, "data", "readlater.json");
@@ -98,7 +98,7 @@ export async function clearTrash(): Promise<number> {
   });
 }
 
-export async function upsertFetchedItem(result: ReadlaterCliResult): Promise<ReadLaterItem> {
+export async function upsertFetchedItem(result: FetchedMetadata): Promise<ReadLaterItem> {
   return mutateDb((db) => {
     const now = new Date().toISOString();
     const url = normalizeUrl(result.url);
