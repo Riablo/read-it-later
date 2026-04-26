@@ -2,7 +2,9 @@ const state = {
   status: "inbox",
   items: [],
   counts: { inbox: 0, trash: 0 },
-  busy: false
+  busy: false,
+  loading: false,
+  lastActivationRefreshAt: 0
 };
 
 const elements = {
@@ -79,18 +81,25 @@ function updateClearTrashButton() {
   elements.clearTrashButton.disabled = (state.counts.trash ?? 0) === 0 || state.busy;
 }
 
-async function loadItems() {
+async function loadItems(options = {}) {
+  if (state.loading) {
+    return;
+  }
+
+  state.loading = true;
   setActiveTab();
-  setStatus("正在加载...");
+  setStatus(options.silent ? "正在刷新..." : "正在加载...");
 
   try {
     const data = await requestJson(`/api/items?status=${state.status}`);
     state.items = data.items;
     applyCounts(data.counts);
     renderItems();
-    setStatus(state.status === "trash" ? "回收站" : "收件箱");
+    setStatus(options.silent ? "已更新" : state.status === "trash" ? "回收站" : "收件箱");
   } catch (error) {
     setStatus(error.message, "error");
+  } finally {
+    state.loading = false;
   }
 }
 
@@ -101,6 +110,7 @@ function renderItems() {
   for (const item of state.items) {
     const node = elements.template.content.firstElementChild.cloneNode(true);
     const openButton = node.querySelector(".open-area");
+    const trashButton = node.querySelector(".trash-button");
     const restoreButton = node.querySelector(".restore-button");
 
     node.dataset.id = item.id;
@@ -110,6 +120,7 @@ function renderItems() {
     node.querySelector(".meta").textContent = `${item.host} · ${formatDate(state.status === "trash" ? item.deletedAt || item.updatedAt : item.createdAt)}`;
 
     openButton.addEventListener("click", () => openItem(item));
+    trashButton.addEventListener("click", () => trashItem(item));
     restoreButton.addEventListener("click", () => restoreItem(item));
     elements.list.append(node);
   }
@@ -118,6 +129,14 @@ function renderItems() {
 async function openItem(item) {
   window.open(item.url, "_blank", "noopener,noreferrer");
 
+  if (state.status !== "inbox") {
+    return;
+  }
+
+  await trashItem(item);
+}
+
+async function trashItem(item) {
   if (state.status !== "inbox") {
     return;
   }
@@ -139,6 +158,20 @@ async function openItem(item) {
     setStatus(error.message, "error");
     await loadItems();
   }
+}
+
+function refreshOnActivation() {
+  if (document.visibilityState !== "visible" || state.busy || state.loading) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - state.lastActivationRefreshAt < 1000) {
+    return;
+  }
+
+  state.lastActivationRefreshAt = now;
+  loadItems({ silent: true });
 }
 
 async function restoreItem(item) {
@@ -226,6 +259,8 @@ async function saveFromForm(event) {
 function bindEvents() {
   elements.form.addEventListener("submit", saveFromForm);
   elements.clearTrashButton.addEventListener("click", clearTrash);
+  document.addEventListener("visibilitychange", refreshOnActivation);
+  window.addEventListener("focus", refreshOnActivation);
 
   for (const tab of elements.tabs) {
     tab.addEventListener("click", () => {

@@ -100,6 +100,7 @@ button:focus-visible {
 
 .primary-button,
 .restore-button,
+.trash-button,
 .clear-trash-button,
 .tab {
   border: 1px solid transparent;
@@ -335,8 +336,26 @@ button:focus-visible {
   background: var(--teal-soft);
 }
 
+.trash-button {
+  min-width: 112px;
+  border-color: rgb(249 115 22 / 0.22);
+  background: var(--panel);
+  color: var(--orange-dark);
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.trash-button:hover {
+  border-color: rgb(249 115 22 / 0.48);
+  background: #fff7ed;
+}
+
 body[data-status="trash"] .restore-button {
   display: inline-flex;
+}
+
+body[data-status="trash"] .trash-button {
+  display: none;
 }
 
 body[data-status="trash"] .open-area {
@@ -415,6 +434,7 @@ body[data-status="trash"] .open-area {
   .toolbar-right,
   .trash-actions,
   .clear-trash-button,
+  .trash-button,
   .restore-button {
     width: 100%;
   }

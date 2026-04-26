@@ -225,4 +225,4 @@ process.on("SIGTERM", () => {
 
 setInterval(() => {
   // Keep the local service alive when started without an attached terminal.
-}, 2_147_483_647);
+}, 60_000);
