@@ -1,5 +1,7 @@
 const DEFAULT_PORT = 3042;
 const DEFAULT_TMUX_SESSION = "read-it-later";
+const TERM_WAIT_MS = 1_200;
+const KILL_WAIT_MS = 800;
 
 const port = Number(process.env.PORT || DEFAULT_PORT);
 const tmuxSession = process.env.READLATER_TMUX_SESSION || DEFAULT_TMUX_SESSION;
@@ -50,51 +52,68 @@ async function findListeningPids() {
     return [];
   }
 
-  return result.stdout
-    .split("\n")
-    .map((line) => Number(line.trim()))
-    .filter((pid) => Number.isInteger(pid) && pid > 0 && pid !== process.pid);
+  return [
+    ...new Set(
+      result.stdout
+        .split("\n")
+        .map((line) => Number(line.trim()))
+        .filter((pid) => Number.isInteger(pid) && pid > 0 && pid !== process.pid)
+    )
+  ];
 }
 
-function isProcessAlive(pid: number) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function stopPortListeners() {
-  const pids = await findListeningPids();
+function signalPids(pids: number[], signal: NodeJS.Signals, label: string) {
   if (pids.length === 0) {
     return;
   }
 
   for (const pid of pids) {
     try {
-      process.kill(pid, "SIGTERM");
+      process.kill(pid, signal);
       stopped = true;
-      console.log(`已向端口 ${port} 的进程发送停止信号：${pid}`);
+      console.log(`${label}：${pid}`);
     } catch (error) {
       console.error(`停止进程失败 ${pid}：${error instanceof Error ? error.message : String(error)}`);
     }
   }
+}
 
-  await Bun.sleep(500);
+async function waitForPortRelease(timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  let pids = await findListeningPids();
 
-  for (const pid of pids) {
-    if (!isProcessAlive(pid)) {
-      continue;
-    }
-
-    try {
-      process.kill(pid, "SIGKILL");
-      console.log(`已强制停止进程：${pid}`);
-    } catch {
-      // The process may have exited between the liveness check and SIGKILL.
-    }
+  while (pids.length > 0 && Date.now() < deadline) {
+    await Bun.sleep(100);
+    pids = await findListeningPids();
   }
+
+  return pids;
+}
+
+async function stopPortListeners() {
+  let pids = await findListeningPids();
+  if (pids.length === 0) {
+    return;
+  }
+
+  signalPids(pids, "SIGTERM", `已向端口 ${port} 的进程发送停止信号`);
+
+  pids = await waitForPortRelease(TERM_WAIT_MS);
+  if (pids.length === 0) {
+    console.log(`端口 ${port} 已释放`);
+    return;
+  }
+
+  signalPids(pids, "SIGKILL", `端口 ${port} 仍被占用，已强制停止进程`);
+
+  pids = await waitForPortRelease(KILL_WAIT_MS);
+  if (pids.length === 0) {
+    console.log(`端口 ${port} 已释放`);
+    return;
+  }
+
+  console.error(`端口 ${port} 仍被占用，剩余进程：${pids.join(", ")}`);
+  process.exitCode = 1;
 }
 
 await stopTmuxSession();
