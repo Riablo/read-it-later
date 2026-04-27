@@ -65,8 +65,8 @@ async function mutateDb<T>(mutator: (db: DatabaseFile) => Promise<T> | T): Promi
 
 function sortItems(items: ReadLaterItem[], status: ItemStatus): ReadLaterItem[] {
   return [...items].sort((a, b) => {
-    const left = status === "trash" ? a.deletedAt ?? a.updatedAt : a.createdAt;
-    const right = status === "trash" ? b.deletedAt ?? b.updatedAt : b.createdAt;
+    const left = status === "inbox" ? a.createdAt : a.updatedAt;
+    const right = status === "inbox" ? b.createdAt : b.updatedAt;
     return right.localeCompare(left);
   });
 }
@@ -86,7 +86,7 @@ export async function getCounts(): Promise<Record<ItemStatus, number>> {
       counts[item.status] += 1;
       return counts;
     },
-    { inbox: 0, trash: 0 }
+    { inbox: 0, kept: 0, trash: 0 }
   );
 }
 
@@ -151,7 +151,7 @@ export async function moveItem(id: string, status: ItemStatus): Promise<ReadLate
     item.updatedAt = now;
     item.deletedAt = status === "trash" ? now : null;
 
-    if (status === "inbox") {
+    if (status === "inbox" || status === "kept") {
       item.createdAt = now;
     }
 

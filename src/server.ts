@@ -42,7 +42,11 @@ function redirect(path: string): Response {
 }
 
 function parseStatus(raw: string | null): ItemStatus {
-  return raw === "trash" ? "trash" : "inbox";
+  if (raw === "kept" || raw === "trash") {
+    return raw;
+  }
+
+  return "inbox";
 }
 
 async function serveStatic(pathname: string): Promise<Response> {
@@ -154,11 +158,12 @@ async function handleApi(request: Request, url: URL): Promise<Response> {
     }
   }
 
-  const moveMatch = url.pathname.match(/^\/api\/items\/([^/]+)\/(trash|restore)$/);
+  const moveMatch = url.pathname.match(/^\/api\/items\/([^/]+)\/(trash|restore|keep)$/);
   if (moveMatch && request.method === "POST") {
     try {
       const id = decodeURIComponent(moveMatch[1]);
-      const status: ItemStatus = moveMatch[2] === "trash" ? "trash" : "inbox";
+      const status: ItemStatus =
+        moveMatch[2] === "trash" ? "trash" : moveMatch[2] === "keep" ? "kept" : "inbox";
       const item = await moveItem(id, status);
       const counts = await getCounts();
       return json({ item, counts });

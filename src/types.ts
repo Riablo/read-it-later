@@ -1,4 +1,4 @@
-export type ItemStatus = "inbox" | "trash";
+export type ItemStatus = "inbox" | "kept" | "trash";
 
 export interface FetchedMetadata {
   url: string;

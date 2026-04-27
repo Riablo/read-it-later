@@ -7,13 +7,48 @@
   --muted: #475569;
   --line: #dbe4ea;
   --line-strong: #b7c6d3;
-  --teal: #0d9488;
-  --teal-dark: #0f766e;
-  --teal-soft: #ccfbf1;
+  --inbox: #0f766e;
+  --inbox-soft: #ccfbf1;
+  --inbox-wash: #eef7f6;
+  --inbox-border: rgb(13 148 136 / 0.28);
+  --inbox-shadow: rgb(15 118 110 / 0.22);
+  --kept: #4f46e5;
+  --kept-dark: #3730a3;
+  --kept-soft: #e0e7ff;
+  --kept-wash: #eef2ff;
+  --kept-border: rgb(79 70 229 / 0.26);
+  --kept-shadow: rgb(79 70 229 / 0.18);
+  --trash: #b91c1c;
+  --trash-dark: #991b1b;
+  --trash-soft: #fee2e2;
+  --trash-wash: #fff1f2;
+  --trash-border: rgb(185 28 28 / 0.28);
+  --trash-shadow: rgb(185 28 28 / 0.18);
+  --tone: var(--inbox);
+  --tone-soft: var(--inbox-soft);
+  --tone-wash: var(--inbox-wash);
+  --tone-border: var(--inbox-border);
+  --tone-shadow: var(--inbox-shadow);
   --orange: #f97316;
   --orange-dark: #c2410c;
   --focus: #2563eb;
   --shadow: 0 20px 60px rgb(15 23 42 / 0.08);
+}
+
+body[data-status="kept"] {
+  --tone: var(--kept);
+  --tone-soft: var(--kept-soft);
+  --tone-wash: var(--kept-wash);
+  --tone-border: var(--kept-border);
+  --tone-shadow: var(--kept-shadow);
+}
+
+body[data-status="trash"] {
+  --tone: var(--trash);
+  --tone-soft: var(--trash-soft);
+  --tone-wash: var(--trash-wash);
+  --tone-border: var(--trash-border);
+  --tone-shadow: var(--trash-shadow);
 }
 
 * {
@@ -28,7 +63,7 @@ body {
   min-width: 320px;
   margin: 0;
   background:
-    linear-gradient(180deg, #f8fafc 0%, #eef7f6 54%, #f8fafc 100%);
+    linear-gradient(180deg, #f8fafc 0%, var(--tone-wash) 54%, #f8fafc 100%);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -60,7 +95,7 @@ button {
 
 .eyebrow {
   margin: 0 0 8px;
-  color: var(--teal-dark);
+  color: var(--tone);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -101,6 +136,7 @@ button:focus-visible {
 .primary-button,
 .restore-button,
 .trash-button,
+.keep-button,
 .clear-trash-button,
 .tab {
   border: 1px solid transparent;
@@ -182,9 +218,9 @@ button:focus-visible {
 }
 
 .tab.is-active {
-  background: var(--teal-dark);
+  background: var(--tone);
   color: white;
-  box-shadow: 0 10px 26px rgb(15 118 110 / 0.22);
+  box-shadow: 0 10px 26px var(--tone-shadow);
 }
 
 .tab.is-active strong {
@@ -201,16 +237,16 @@ button:focus-visible {
 
 .clear-trash-button {
   min-width: 124px;
-  border-color: rgb(185 28 28 / 0.22);
-  background: #fff7ed;
-  color: #b91c1c;
+  border-color: var(--trash-border);
+  background: var(--trash-soft);
+  color: var(--trash-dark);
   font-weight: 800;
   padding: 0 14px;
 }
 
 .clear-trash-button:hover:not(:disabled) {
   border-color: rgb(185 28 28 / 0.48);
-  background: #ffedd5;
+  background: #fecaca;
 }
 
 .clear-trash-button:disabled {
@@ -229,7 +265,7 @@ button:focus-visible {
 
 .link-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 10px;
   align-items: stretch;
 }
@@ -252,7 +288,7 @@ button:focus-visible {
 }
 
 .open-area:hover {
-  border-color: var(--line-strong);
+  border-color: var(--tone-border);
   background: #fbfdfe;
   box-shadow: var(--shadow);
 }
@@ -262,10 +298,10 @@ button:focus-visible {
   min-height: 42px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid rgb(13 148 136 / 0.28);
+  border: 1px solid var(--tone-border);
   border-radius: 8px;
-  background: var(--teal-soft);
-  color: var(--teal-dark);
+  background: var(--tone-soft);
+  color: var(--tone);
   font-size: 15px;
   font-weight: 900;
   text-transform: lowercase;
@@ -318,36 +354,50 @@ button:focus-visible {
 }
 
 .external-icon {
-  color: var(--teal-dark);
+  color: var(--tone);
 }
 
 .restore-button {
   display: none;
   min-width: 124px;
-  border-color: var(--line);
+  border-color: var(--inbox-border);
   background: var(--panel);
-  color: var(--teal-dark);
+  color: var(--inbox);
   font-weight: 800;
   padding: 0 14px;
 }
 
 .restore-button:hover {
   border-color: rgb(13 148 136 / 0.5);
-  background: var(--teal-soft);
+  background: var(--inbox-soft);
 }
 
 .trash-button {
   min-width: 112px;
-  border-color: rgb(249 115 22 / 0.22);
+  border-color: var(--trash-border);
   background: var(--panel);
-  color: var(--orange-dark);
+  color: var(--trash-dark);
   font-weight: 800;
   padding: 0 14px;
 }
 
 .trash-button:hover {
-  border-color: rgb(249 115 22 / 0.48);
-  background: #fff7ed;
+  border-color: rgb(185 28 28 / 0.48);
+  background: var(--trash-soft);
+}
+
+.keep-button {
+  min-width: 112px;
+  border-color: var(--kept-border);
+  background: var(--panel);
+  color: var(--kept-dark);
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.keep-button:hover {
+  border-color: rgb(79 70 229 / 0.46);
+  background: var(--kept-soft);
 }
 
 body[data-status="trash"] .restore-button {
@@ -355,6 +405,10 @@ body[data-status="trash"] .restore-button {
 }
 
 body[data-status="trash"] .trash-button {
+  display: none;
+}
+
+body[data-status="kept"] .keep-button {
   display: none;
 }
 
@@ -387,7 +441,7 @@ body[data-status="trash"] .open-area {
 .empty-icon {
   width: 34px;
   height: 34px;
-  color: var(--teal-dark);
+  color: var(--tone);
 }
 
 .sr-only {
@@ -435,6 +489,7 @@ body[data-status="trash"] .open-area {
   .trash-actions,
   .clear-trash-button,
   .trash-button,
+  .keep-button,
   .restore-button {
     width: 100%;
   }

@@ -1,7 +1,7 @@
 const state = {
   status: "inbox",
   items: [],
-  counts: { inbox: 0, trash: 0 },
+  counts: { inbox: 0, kept: 0, trash: 0 },
   busy: false,
   loading: false,
   lastActivationRefreshAt: 0
@@ -16,6 +16,7 @@ const elements = {
   template: document.querySelector("#item-template"),
   statusLine: document.querySelector("#status-line"),
   inboxCount: document.querySelector("#inbox-count"),
+  keptCount: document.querySelector("#kept-count"),
   trashCount: document.querySelector("#trash-count"),
   trashActions: document.querySelector("#trash-actions"),
   clearTrashButton: document.querySelector("#clear-trash-button"),
@@ -61,6 +62,7 @@ function formatDate(value) {
 function applyCounts(counts) {
   state.counts = counts || state.counts;
   elements.inboxCount.textContent = String(state.counts.inbox ?? 0);
+  elements.keptCount.textContent = String(state.counts.kept ?? 0);
   elements.trashCount.textContent = String(state.counts.trash ?? 0);
   updateClearTrashButton();
 }
@@ -95,7 +97,7 @@ async function loadItems(options = {}) {
     state.items = data.items;
     applyCounts(data.counts);
     renderItems();
-    setStatus(options.silent ? "已更新" : state.status === "trash" ? "回收站" : "收件箱");
+    setStatus(options.silent ? "已更新" : statusLabel(state.status));
   } catch (error) {
     setStatus(error.message, "error");
   } finally {
@@ -111,19 +113,38 @@ function renderItems() {
     const node = elements.template.content.firstElementChild.cloneNode(true);
     const openButton = node.querySelector(".open-area");
     const trashButton = node.querySelector(".trash-button");
+    const keepButton = node.querySelector(".keep-button");
     const restoreButton = node.querySelector(".restore-button");
 
     node.dataset.id = item.id;
     node.querySelector(".domain-chip").textContent = item.domain;
     node.querySelector(".title").textContent = item.title;
     node.querySelector(".summary").textContent = item.summary;
-    node.querySelector(".meta").textContent = `${item.host} · ${formatDate(state.status === "trash" ? item.deletedAt || item.updatedAt : item.createdAt)}`;
+    node.querySelector(".meta").textContent = `${item.host} · ${formatDate(displayDate(item))}`;
+    node.querySelector(".trash-label").textContent = state.status === "kept" ? "删除" : "回收";
 
     openButton.addEventListener("click", () => openItem(item));
     trashButton.addEventListener("click", () => trashItem(item));
+    keepButton.addEventListener("click", () => keepItem(item));
     restoreButton.addEventListener("click", () => restoreItem(item));
     elements.list.append(node);
   }
+}
+
+function statusLabel(status) {
+  if (status === "kept") {
+    return "留存";
+  }
+
+  return status === "trash" ? "回收站" : "收件箱";
+}
+
+function displayDate(item) {
+  if (state.status === "trash") {
+    return item.deletedAt || item.updatedAt;
+  }
+
+  return state.status === "kept" ? item.updatedAt : item.createdAt;
 }
 
 async function openItem(item) {
@@ -137,13 +158,15 @@ async function openItem(item) {
 }
 
 async function trashItem(item) {
-  if (state.status !== "inbox") {
+  if (state.status === "trash") {
     return;
   }
 
   state.items = state.items.filter((candidate) => candidate.id !== item.id);
+  const fromStatus = state.status;
   applyCounts({
-    inbox: Math.max((state.counts.inbox || 1) - 1, 0),
+    ...state.counts,
+    [fromStatus]: Math.max((state.counts[fromStatus] || 1) - 1, 0),
     trash: (state.counts.trash || 0) + 1
   });
   renderItems();
@@ -151,6 +174,32 @@ async function trashItem(item) {
 
   try {
     const data = await requestJson(`/api/items/${encodeURIComponent(item.id)}/trash`, {
+      method: "POST"
+    });
+    applyCounts(data.counts);
+  } catch (error) {
+    setStatus(error.message, "error");
+    await loadItems();
+  }
+}
+
+async function keepItem(item) {
+  if (state.status === "kept") {
+    return;
+  }
+
+  state.items = state.items.filter((candidate) => candidate.id !== item.id);
+  const fromStatus = state.status;
+  applyCounts({
+    ...state.counts,
+    [fromStatus]: Math.max((state.counts[fromStatus] || 1) - 1, 0),
+    kept: (state.counts.kept || 0) + 1
+  });
+  renderItems();
+  setStatus("已移到留存");
+
+  try {
+    const data = await requestJson(`/api/items/${encodeURIComponent(item.id)}/keep`, {
       method: "POST"
     });
     applyCounts(data.counts);
