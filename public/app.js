@@ -1,9 +1,12 @@
 const state = {
   status: "inbox",
+  query: "",
+  sort: "desc",
   items: [],
   counts: { inbox: 0, kept: 0, trash: 0 },
   busy: false,
   loading: false,
+  pendingLoad: false,
   lastActivationRefreshAt: 0
 };
 
@@ -14,7 +17,11 @@ const elements = {
   list: document.querySelector("#item-list"),
   empty: document.querySelector("#empty-state"),
   template: document.querySelector("#item-template"),
+  searchInput: document.querySelector("#search-input"),
+  sortSelect: document.querySelector("#sort-select"),
   statusLine: document.querySelector("#status-line"),
+  emptyTitle: document.querySelector("#empty-title"),
+  emptyText: document.querySelector("#empty-text"),
   inboxCount: document.querySelector("#inbox-count"),
   keptCount: document.querySelector("#kept-count"),
   trashCount: document.querySelector("#trash-count"),
@@ -85,6 +92,7 @@ function updateClearTrashButton() {
 
 async function loadItems(options = {}) {
   if (state.loading) {
+    state.pendingLoad = true;
     return;
   }
 
@@ -93,21 +101,35 @@ async function loadItems(options = {}) {
   setStatus(options.silent ? "正在刷新..." : "正在加载...");
 
   try {
-    const data = await requestJson(`/api/items?status=${state.status}`);
+    const params = new URLSearchParams({
+      status: state.status,
+      sort: state.sort
+    });
+
+    if (state.query.trim()) {
+      params.set("q", state.query.trim());
+    }
+
+    const data = await requestJson(`/api/items?${params}`);
     state.items = data.items;
     applyCounts(data.counts);
     renderItems();
-    setStatus(options.silent ? "已更新" : statusLabel(state.status));
+    setStatus(options.silent ? "已更新" : listStatusMessage());
   } catch (error) {
     setStatus(error.message, "error");
   } finally {
     state.loading = false;
+    if (state.pendingLoad) {
+      state.pendingLoad = false;
+      await loadItems(options);
+    }
   }
 }
 
 function renderItems() {
   elements.list.replaceChildren();
   elements.empty.hidden = state.items.length > 0;
+  renderEmptyState();
 
   for (const item of state.items) {
     const node = elements.template.content.firstElementChild.cloneNode(true);
@@ -131,12 +153,27 @@ function renderItems() {
   }
 }
 
+function renderEmptyState() {
+  const hasQuery = state.query.trim().length > 0;
+  elements.emptyTitle.textContent = hasQuery ? "没有匹配的链接" : "这里还没有链接";
+  elements.emptyText.textContent = hasQuery ? "换个关键词试试。" : "当前列表为空。";
+}
+
 function statusLabel(status) {
   if (status === "kept") {
     return "留存";
   }
 
   return status === "trash" ? "回收站" : "收件箱";
+}
+
+function listStatusMessage() {
+  const label = statusLabel(state.status);
+  if (!state.query.trim()) {
+    return label;
+  }
+
+  return `${label} · ${state.items.length} 个匹配`;
 }
 
 function displayDate(item) {
@@ -306,8 +343,19 @@ async function saveFromForm(event) {
 }
 
 function bindEvents() {
+  let searchTimer = 0;
+
   elements.form.addEventListener("submit", saveFromForm);
   elements.clearTrashButton.addEventListener("click", clearTrash);
+  elements.searchInput.addEventListener("input", () => {
+    state.query = elements.searchInput.value;
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => loadItems(), 180);
+  });
+  elements.sortSelect.addEventListener("change", () => {
+    state.sort = elements.sortSelect.value === "asc" ? "asc" : "desc";
+    loadItems();
+  });
   document.addEventListener("visibilitychange", refreshOnActivation);
   window.addEventListener("focus", refreshOnActivation);
 

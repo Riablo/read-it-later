@@ -1,4 +1,5 @@
 export type ItemStatus = "inbox" | "kept" | "trash";
+export type SortDirection = "asc" | "desc";
 
 export interface FetchedMetadata {
   url: string;
@@ -30,4 +31,9 @@ export interface ReadLaterItem {
 export interface DatabaseFile {
   version: 1;
   items: ReadLaterItem[];
+}
+
+export interface ItemListOptions {
+  query?: string;
+  sort?: SortDirection;
 }

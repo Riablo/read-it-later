@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { displayHost, domainLabelFromUrl, normalizeUrl } from "./domain";
-import type { DatabaseFile, FetchedMetadata, ItemStatus, ReadLaterItem } from "./types";
+import type { DatabaseFile, FetchedMetadata, ItemListOptions, ItemStatus, ReadLaterItem } from "./types";
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const defaultDataPath = join(rootDir, "data", "readlater.json");
@@ -63,19 +63,40 @@ async function mutateDb<T>(mutator: (db: DatabaseFile) => Promise<T> | T): Promi
   return run;
 }
 
-function sortItems(items: ReadLaterItem[], status: ItemStatus): ReadLaterItem[] {
-  return [...items].sort((a, b) => {
-    const left = status === "inbox" ? a.createdAt : a.updatedAt;
-    const right = status === "inbox" ? b.createdAt : b.updatedAt;
-    return right.localeCompare(left);
+function searchableText(item: ReadLaterItem): string {
+  return [item.title, item.summary, item.url, item.domain, item.host, item.source].join(" ").toLowerCase();
+}
+
+function itemDate(item: ReadLaterItem, status: ItemStatus): string {
+  if (status === "trash") {
+    return item.deletedAt || item.updatedAt;
+  }
+
+  return status === "kept" ? item.updatedAt : item.createdAt;
+}
+
+export function filterAndSortItems(
+  items: ReadLaterItem[],
+  status: ItemStatus,
+  options: ItemListOptions = {}
+): ReadLaterItem[] {
+  const query = options.query?.trim().toLowerCase() || "";
+  const sort = options.sort === "asc" ? "asc" : "desc";
+  const filtered = query ? items.filter((item) => searchableText(item).includes(query)) : items;
+
+  return [...filtered].sort((a, b) => {
+    const left = itemDate(a, status);
+    const right = itemDate(b, status);
+    return sort === "asc" ? left.localeCompare(right) : right.localeCompare(left);
   });
 }
 
-export async function listItems(status: ItemStatus): Promise<ReadLaterItem[]> {
+export async function listItems(status: ItemStatus, options: ItemListOptions = {}): Promise<ReadLaterItem[]> {
   const db = await readDb();
-  return sortItems(
+  return filterAndSortItems(
     db.items.filter((item) => item.status === status),
-    status
+    status,
+    options
   );
 }
 

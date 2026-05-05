@@ -42,6 +42,20 @@
             <strong id="trash-count">0</strong>
           </button>
         </div>
+        <div class="list-controls">
+          <label class="search-control" for="search-input">
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span class="sr-only">搜索</span>
+            <input id="search-input" type="search" autocomplete="off" placeholder="搜索标题、摘要或网址">
+          </label>
+          <label class="sort-control" for="sort-select">
+            <span class="sr-only">排序</span>
+            <select id="sort-select">
+              <option value="desc">新到旧</option>
+              <option value="asc">旧到新</option>
+            </select>
+          </label>
+        </div>
         <div class="toolbar-right">
           <div class="trash-actions" id="trash-actions" hidden>
             <button class="clear-trash-button" id="clear-trash-button" type="button">
@@ -56,8 +70,8 @@
       <section class="list-wrap" aria-label="已保存链接">
         <div class="empty-state" id="empty-state" hidden>
           <svg aria-hidden="true" viewBox="0 0 24 24" class="empty-icon"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"/><path d="M2 15h7l2 3h2l2-3h7"/><path d="M22 15v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3"/></svg>
-          <h2>这里还没有链接</h2>
-          <p>当前列表为空。</p>
+          <h2 id="empty-title">这里还没有链接</h2>
+          <p id="empty-text">当前列表为空。</p>
         </div>
         <div class="item-list" id="item-list"></div>
       </section>

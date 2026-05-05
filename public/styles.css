@@ -70,7 +70,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
   letter-spacing: 0;
 }
@@ -128,6 +129,8 @@ h1 {
 }
 
 .save-form input:focus-visible,
+.list-controls input:focus-visible,
+.list-controls select:focus-visible,
 button:focus-visible {
   outline: 3px solid rgb(37 99 235 / 0.28);
   outline-offset: 2px;
@@ -162,13 +165,78 @@ button:focus-visible {
 }
 
 .toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   padding: 14px 0;
+}
+
+.list-controls {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(112px, auto);
+  gap: 10px;
+  align-items: center;
+}
+
+.search-control {
+  min-width: 0;
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.86);
+  color: var(--muted);
+  padding: 0 12px;
+}
+
+.search-control input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.search-control input::placeholder {
+  color: #64748b;
+}
+
+.sort-control {
+  position: relative;
+  display: block;
+}
+
+.sort-control::after {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #475569;
+  border-bottom: 2px solid #475569;
+  content: "";
+  pointer-events: none;
+  transform: translateY(-62%) rotate(45deg);
+}
+
+.sort-control select {
+  appearance: none;
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.86);
+  color: var(--text);
+  font-weight: 800;
+  padding: 0 40px 0 14px;
 }
 
 .toolbar-right {
@@ -484,6 +552,7 @@ body[data-status="trash"] .open-area {
   }
 
   .tabs,
+  .list-controls,
   .tab,
   .toolbar-right,
   .trash-actions,
@@ -492,6 +561,10 @@ body[data-status="trash"] .open-area {
   .keep-button,
   .restore-button {
     width: 100%;
+  }
+
+  .list-controls {
+    grid-template-columns: 1fr;
   }
 
   .toolbar-right {

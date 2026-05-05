@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { displayHost, domainLabelFromUrl, normalizeUrl } from "./domain";
 import { fetchUrlMetadata, metadataErrorMessage } from "./readlater";
 import { clearTrash, getCounts, listItems, moveItem, upsertFetchedItem } from "./store";
-import type { ItemStatus } from "./types";
+import type { ItemStatus, SortDirection } from "./types";
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const publicDir = join(rootDir, "public");
@@ -47,6 +47,10 @@ function parseStatus(raw: string | null): ItemStatus {
   }
 
   return "inbox";
+}
+
+function parseSortDirection(raw: string | null): SortDirection {
+  return raw === "asc" ? "asc" : "desc";
 }
 
 async function serveStatic(pathname: string): Promise<Response> {
@@ -125,7 +129,9 @@ function escapeHtml(value: string): string {
 async function handleApi(request: Request, url: URL): Promise<Response> {
   if (url.pathname === "/api/items" && request.method === "GET") {
     const status = parseStatus(url.searchParams.get("status"));
-    const [items, counts] = await Promise.all([listItems(status), getCounts()]);
+    const query = url.searchParams.get("q") || "";
+    const sort = parseSortDirection(url.searchParams.get("sort"));
+    const [items, counts] = await Promise.all([listItems(status, { query, sort }), getCounts()]);
     return json({ items, counts });
   }
 
