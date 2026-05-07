@@ -1,3 +1,4 @@
+const PLIST_PATH = `${process.env.HOME}/Library/LaunchAgents/com.riablo.read-it-later.plist`;
 const DEFAULT_PORT = 3042;
 const DEFAULT_TMUX_SESSION = "read-it-later";
 const TERM_WAIT_MS = 1_200;
@@ -20,7 +21,6 @@ async function run(command: string, args: string[]) {
       new Response(proc.stderr).text(),
       proc.exited
     ]);
-
     return { exitCode, stdout, stderr };
   } catch (error) {
     return {
@@ -30,6 +30,28 @@ async function run(command: string, args: string[]) {
     };
   }
 }
+
+// ── 1. 卸载 LaunchAgent（防止 KeepAlive 自动重启） ──
+
+async function unloadLaunchAgent() {
+  const { exitCode, stderr } = await run("launchctl", ["unload", PLIST_PATH]);
+
+  if (exitCode === 0) {
+    stopped = true;
+    console.log(`已卸载 LaunchAgent：${PLIST_PATH}`);
+  } else {
+    // 113 = "not loaded"（可能之前已经卸载了），不算错误
+    const notLoaded = stderr.includes("113: Could not find specified service")
+      || stderr.includes("not loaded");
+    if (notLoaded) {
+      console.log(`LaunchAgent 未在运行或已卸载：${PLIST_PATH}`);
+    } else {
+      console.error(`卸载 LaunchAgent 失败：${stderr.trim() || "未知错误"}`);
+    }
+  }
+}
+
+// ── 2. 停止 tmux 会话（兼容旧的手动启动方式） ──
 
 async function stopTmuxSession() {
   const check = await run("tmux", ["has-session", "-t", tmuxSession]);
@@ -45,6 +67,8 @@ async function stopTmuxSession() {
     console.error(`停止 tmux 会话失败：${killed.stderr.trim() || "未知错误"}`);
   }
 }
+
+// ── 3. 兜底：kill 端口上残留的进程 ──
 
 async function findListeningPids() {
   const result = await run("lsof", ["-ti", `TCP:${port}`, "-sTCP:LISTEN"]);
@@ -116,12 +140,16 @@ async function stopPortListeners() {
   process.exitCode = 1;
 }
 
+// ── 执行顺序：先卸载 Agent → 停 tmux → 兜底杀进程 ──
+
+await unloadLaunchAgent();
+await Bun.sleep(500);
 await stopTmuxSession();
 await Bun.sleep(200);
 await stopPortListeners();
 
 if (!stopped) {
-  console.log(`没有发现正在运行的本地服务：tmux=${tmuxSession}, port=${port}`);
+  console.log(`没有发现正在运行的本地服务：launchctl=${PLIST_PATH}, tmux=${tmuxSession}, port=${port}`);
 }
 
 export {};
