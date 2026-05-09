@@ -1,7 +1,9 @@
+const SORT_STORAGE_KEY = "readlater.sort";
+
 const state = {
   status: "inbox",
   query: "",
-  sort: "desc",
+  sort: readStoredSort(),
   items: [],
   counts: { inbox: 0, kept: 0, trash: 0 },
   busy: false,
@@ -29,6 +31,22 @@ const elements = {
   clearTrashButton: document.querySelector("#clear-trash-button"),
   tabs: [...document.querySelectorAll("[data-status]")]
 };
+
+function readStoredSort() {
+  try {
+    return localStorage.getItem(SORT_STORAGE_KEY) === "asc" ? "asc" : "desc";
+  } catch {
+    return "desc";
+  }
+}
+
+function storeSort(sort) {
+  try {
+    localStorage.setItem(SORT_STORAGE_KEY, sort);
+  } catch {
+    // Ignore storage failures so sorting still works in restricted browsing modes.
+  }
+}
 
 function setStatus(message, tone = "muted") {
   elements.statusLine.textContent = message;
@@ -345,6 +363,7 @@ async function saveFromForm(event) {
 function bindEvents() {
   let searchTimer = 0;
 
+  elements.sortSelect.value = state.sort;
   elements.form.addEventListener("submit", saveFromForm);
   elements.clearTrashButton.addEventListener("click", clearTrash);
   elements.searchInput.addEventListener("input", () => {
@@ -354,6 +373,7 @@ function bindEvents() {
   });
   elements.sortSelect.addEventListener("change", () => {
     state.sort = elements.sortSelect.value === "asc" ? "asc" : "desc";
+    storeSort(state.sort);
     loadItems();
   });
   document.addEventListener("visibilitychange", refreshOnActivation);
