@@ -1,9 +1,10 @@
 const SORT_STORAGE_KEY = "readlater.sort";
+const SORT_STORAGE_PREFIX = "readlater.sort.";
 
 const state = {
   status: "inbox",
   query: "",
-  sort: readStoredSort(),
+  sort: readStoredSort("inbox"),
   items: [],
   counts: { inbox: 0, kept: 0, trash: 0 },
   busy: false,
@@ -32,20 +33,30 @@ const elements = {
   tabs: [...document.querySelectorAll("[data-status]")]
 };
 
-function readStoredSort() {
+function sortStorageKey(status) {
+  return `${SORT_STORAGE_PREFIX}${status}`;
+}
+
+function readStoredSort(status) {
   try {
-    return localStorage.getItem(SORT_STORAGE_KEY) === "asc" ? "asc" : "desc";
+    const stored = localStorage.getItem(sortStorageKey(status)) ?? localStorage.getItem(SORT_STORAGE_KEY);
+    return stored === "asc" ? "asc" : "desc";
   } catch {
     return "desc";
   }
 }
 
-function storeSort(sort) {
+function storeSort(status, sort) {
   try {
-    localStorage.setItem(SORT_STORAGE_KEY, sort);
+    localStorage.setItem(sortStorageKey(status), sort);
   } catch {
     // Ignore storage failures so sorting still works in restricted browsing modes.
   }
+}
+
+function syncSortControl() {
+  state.sort = readStoredSort(state.status);
+  elements.sortSelect.value = state.sort;
 }
 
 function setStatus(message, tone = "muted") {
@@ -363,7 +374,7 @@ async function saveFromForm(event) {
 function bindEvents() {
   let searchTimer = 0;
 
-  elements.sortSelect.value = state.sort;
+  syncSortControl();
   elements.form.addEventListener("submit", saveFromForm);
   elements.clearTrashButton.addEventListener("click", clearTrash);
   elements.searchInput.addEventListener("input", () => {
@@ -373,7 +384,7 @@ function bindEvents() {
   });
   elements.sortSelect.addEventListener("change", () => {
     state.sort = elements.sortSelect.value === "asc" ? "asc" : "desc";
-    storeSort(state.sort);
+    storeSort(state.status, state.sort);
     loadItems();
   });
   document.addEventListener("visibilitychange", refreshOnActivation);
@@ -382,6 +393,7 @@ function bindEvents() {
   for (const tab of elements.tabs) {
     tab.addEventListener("click", () => {
       state.status = tab.dataset.status;
+      syncSortControl();
       loadItems();
     });
   }
