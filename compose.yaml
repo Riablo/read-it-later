@@ -1,0 +1,12 @@
+services:
+  read-it-later:
+    build: .
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3042
+      READLATER_DATA: /app/data/readlater.json
+    ports:
+      - "127.0.0.1:3042:3042"
+    volumes:
+      - ./data:/app/data

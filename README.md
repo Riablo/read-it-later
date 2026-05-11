@@ -17,6 +17,28 @@ bun run dev
 bun run stop
 ```
 
+## Docker 运行
+
+Docker 运行方式适合在常开机器上替代 LaunchAgent/tmux 之类的本机守护脚本：
+
+```bash
+docker compose up -d --build
+```
+
+默认仍然访问 `http://127.0.0.1:3042`。项目的 `./data` 目录会挂载到容器里的 `/app/data`，所以容器重建不会删除 `data/readlater.json`。
+
+查看日志：
+
+```bash
+docker compose logs -f
+```
+
+停止 Docker 服务：
+
+```bash
+docker compose down
+```
+
 ## 保存 URL
 
 在浏览器中打开类似下面的地址即可保存：

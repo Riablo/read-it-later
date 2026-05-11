@@ -1,0 +1,8 @@
+.DS_Store
+.codex/
+.git/
+node_modules/
+logs/
+*.log
+data/*.json
+data/*.tmp
