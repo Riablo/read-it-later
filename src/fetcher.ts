@@ -3,7 +3,7 @@ import type { FetchedMetadata } from "./types";
 const APP_NAME = "read-it-later";
 const DEFAULT_TIMEOUT_SECONDS = 10;
 const DEFAULT_SUMMARY_LENGTH = 280;
-const DEFAULT_RETRIES = 1;
+const DEFAULT_RETRIES = 2;
 const USER_AGENT = [
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
   "AppleWebKit/537.36 (KHTML, like Gecko)",
@@ -98,7 +98,16 @@ export async function fetchReadlaterItem(
     }
   }
 
-  return fetchGenericUrl(url, timeoutSeconds, summaryLength);
+  try {
+    return await fetchGenericUrl(url, timeoutSeconds, summaryLength);
+  } catch (error) {
+    const fallback = buildKnownUrlFallback(url);
+    if (fallback && isRecoverableFetchError(error)) {
+      return fallback;
+    }
+
+    throw error;
+  }
 }
 
 export function normalizeInputUrl(rawUrl: string): string {
@@ -322,12 +331,13 @@ async function fetchXOembed(
   const authorName = cleanText(toStringValue(payload.author_name));
   const authorUrl = cleanText(toStringValue(payload.author_url));
   const handle = handleFromUrl(authorUrl) || info.handle;
+  const byline = buildXByline(authorName, handle);
 
   return {
     url,
     canonical_url: cleanText(toStringValue(payload.url)) || undefined,
-    title: buildXTitle(authorName, handle),
-    summary,
+    title: buildXPostTitle(summary, authorName, handle),
+    summary: byline || summary,
     source: "x-oembed",
     author_name: authorName || undefined,
     author_url: authorUrl || undefined,
@@ -373,7 +383,6 @@ async function requestBytesWithRetries(
       const response = await fetch(url, {
         headers: {
           accept,
-          "accept-encoding": "gzip, deflate",
           "user-agent": USER_AGENT
         },
         signal: AbortSignal.timeout(timeoutSeconds * 1000),
@@ -395,6 +404,7 @@ async function requestBytesWithRetries(
     } catch (error) {
       lastError = error;
       if (attempt < retries && isRetryableError(error)) {
+        await waitBeforeRetry(attempt);
         continue;
       }
 
@@ -646,29 +656,38 @@ function isUnhelpfulXItem(item: FetchedMetadata): boolean {
 function buildXUrlFallback(url: string, info: XStatusInfo): FetchedMetadata {
   return {
     url,
-    title: buildXTitle(null, info.handle),
+    title: buildXFallbackTitle(null, info.handle),
     source: "x-url",
     site_name: "X",
     fetched_at: utcNowIso()
   };
 }
 
-function buildXTitle(authorName: string | null, handle: string | null): string {
-  const author = cleanText(authorName);
+function buildXPostTitle(summary: string | null, authorName: string | null, handle: string | null): string {
+  return truncateText(summary, 120) || buildXFallbackTitle(authorName, handle);
+}
 
-  if (author && handle) {
-    return `${author} (@${handle}) on X`;
+function buildXByline(authorName: string | null, handle: string | null): string | null {
+  const author = cleanText(authorName);
+  const cleanHandle = cleanText(handle)?.replace(/^@/, "") || null;
+
+  if (author && cleanHandle && author.toLowerCase() !== cleanHandle.toLowerCase()) {
+    return `${author} (@${cleanHandle}) on X`;
+  }
+
+  if (cleanHandle) {
+    return `@${cleanHandle} on X`;
   }
 
   if (author) {
     return `${author} on X`;
   }
 
-  if (handle) {
-    return `@${handle} on X`;
-  }
+  return null;
+}
 
-  return "X Post";
+function buildXFallbackTitle(authorName: string | null, handle: string | null): string {
+  return buildXByline(authorName, handle) || "X Post";
 }
 
 function handleFromUrl(rawUrl: string | null): string | null {
@@ -693,12 +712,25 @@ function utcNowIso(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+function waitBeforeRetry(attempt: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 160 * (attempt + 1));
+  });
+}
+
 function isRetryableError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
   }
 
   return ["AbortError", "TimeoutError", "TypeError"].includes(error.name);
+}
+
+function isRecoverableFetchError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message === "请求超时。" || error.message.startsWith("请求失败："))
+  );
 }
 
 function formatNetworkError(error: unknown): string {
@@ -727,4 +759,52 @@ function toStringValue(value: unknown): string | null {
   }
 
   return String(value);
+}
+
+function buildKnownUrlFallback(url: string): FetchedMetadata | null {
+  const githubRepo = parseGithubRepoUrl(url);
+
+  if (githubRepo) {
+    return {
+      url,
+      canonical_url: url,
+      title: `${githubRepo.owner}/${githubRepo.repo}`,
+      summary: `GitHub 仓库 · ${githubRepo.owner}`,
+      source: "github-url-fallback",
+      site_name: "GitHub",
+      fetched_at: utcNowIso()
+    };
+  }
+
+  return null;
+}
+
+function parseGithubRepoUrl(rawUrl: string): { owner: string; repo: string } | null {
+  try {
+    const url = new URL(rawUrl);
+    const host = normalizeHost(url.host);
+    if (host !== "github.com") {
+      return null;
+    }
+
+    const parts = url.pathname
+      .split("/")
+      .filter(Boolean)
+      .map((part) => decodeURIComponent(part));
+
+    if (parts.length < 2) {
+      return null;
+    }
+
+    const owner = cleanText(parts[0]);
+    const repo = cleanText(parts[1].replace(/\.git$/i, ""));
+
+    if (!owner || !repo) {
+      return null;
+    }
+
+    return { owner, repo };
+  } catch {
+    return null;
+  }
 }
