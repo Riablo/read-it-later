@@ -1,14 +1,17 @@
-import { dirname, extname, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import { dirname, extname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { displayHost, domainLabelFromUrl, normalizeUrl } from "./domain";
-import { fetchUrlMetadata, metadataErrorMessage } from "./readlater";
-import { clearTrash, getCounts, listItems, moveItem, upsertFetchedItem } from "./store";
-import type { ItemStatus, SortDirection } from "./types";
+import { displayHost, domainLabelFromUrl, normalizeUrl } from "./domain.ts";
+import { fetchUrlMetadata, metadataErrorMessage } from "./readlater.ts";
+import { clearTrash, getCounts, listItems, moveItem, upsertFetchedItem } from "./store.ts";
+import type { ItemStatus, SortDirection } from "./types.ts";
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const publicDir = join(rootDir, "public");
 const port = Number(process.env.PORT || 3042);
 const hostname = process.env.HOST || "127.0.0.1";
+const maxBodySize = 128 * 1024 * 1024; // Preserve Bun.serve's default request limit.
 
 const contentTypes: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -56,15 +59,18 @@ function parseSortDirection(raw: string | null): SortDirection {
 async function serveStatic(pathname: string): Promise<Response> {
   const filePath = pathname === "/" ? join(publicDir, "index.html") : join(publicDir, pathname);
 
-  if (!filePath.startsWith(publicDir)) {
+  if (!filePath.startsWith(publicDir + sep)) {
     return new Response("未找到", { status: 404 });
   }
 
-  const file = Bun.file(filePath);
-  const exists = await file.exists();
-
-  if (!exists) {
-    return new Response("未找到", { status: 404 });
+  let file;
+  try {
+    file = await readFile(filePath);
+  } catch (error) {
+    if (["ENOENT", "ENOTDIR", "EISDIR"].includes((error as NodeJS.ErrnoException).code || "")) {
+      return new Response("未找到", { status: 404 });
+    }
+    throw error;
   }
 
   return new Response(file, {
@@ -93,23 +99,18 @@ async function saveUrl(rawUrl: string | null): Promise<Response> {
 }
 
 function savePage(title: string, message: string, failed = false): string {
-  const tone = failed ? "#B91C1C" : "#0F766E";
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)} - 稍后阅读</title>
-  <style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8fafc; color: #0f172a; }
-    main { width: min(520px, calc(100vw - 40px)); border: 1px solid #dbe4ea; border-radius: 8px; background: white; padding: 28px; box-shadow: 0 24px 60px rgb(15 23 42 / 0.10); }
-    h1 { margin: 0 0 10px; color: ${tone}; font-size: 22px; letter-spacing: 0; }
-    p { margin: 0 0 18px; line-height: 1.6; color: #475569; word-break: break-word; }
-    a { color: #0f766e; font-weight: 700; }
-  </style>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-  <main>
+<body class="message-page">
+  <main class="message-panel" data-tone="${failed ? "error" : "muted"}">
+    <p class="eyebrow">稍后阅读</p>
     <h1>${escapeHtml(title)}</h1>
     <p>${escapeHtml(message)}</p>
     <a href="/">返回列表</a>
@@ -195,45 +196,64 @@ async function handleApi(request: Request, url: URL): Promise<Response> {
   return json({ error: "未找到" }, { status: 404 });
 }
 
-const server = Bun.serve({
-  port,
-  hostname,
-  async fetch(request) {
-    const url = new URL(request.url);
+async function handleRequest(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  if (url.pathname === "/save" && request.method === "GET") {
+    return saveUrl(url.searchParams.get("url") || url.searchParams.get("u"));
+  }
 
-    try {
-      if (url.pathname === "/save" && request.method === "GET") {
-        return saveUrl(url.searchParams.get("url") || url.searchParams.get("u"));
-      }
+  if (url.pathname.startsWith("/api/")) {
+    return handleApi(request, url);
+  }
 
-      if (url.pathname.startsWith("/api/")) {
-        return handleApi(request, url);
-      }
+  return serveStatic(url.pathname);
+}
 
-      return serveStatic(url.pathname);
-    } catch (error) {
-      return json(
-        {
-          error: error instanceof Error ? error.message : "服务器发生意外错误。"
-        },
-        { status: 500 }
-      );
+const server = createServer(async (incoming, outgoing) => {
+  try {
+    if (Number(incoming.headers["content-length"]) > maxBodySize) {
+      outgoing.writeHead(413).end("Payload Too Large");
+      return;
     }
+    const chunks: Buffer[] = [];
+    let bodySize = 0;
+    for await (const chunk of incoming) {
+      bodySize += chunk.length;
+      if (bodySize > maxBodySize) {
+        outgoing.writeHead(413).end("Payload Too Large");
+        return;
+      }
+      chunks.push(Buffer.from(chunk));
+    }
+    const headers = new Headers();
+    for (let index = 0; index < incoming.rawHeaders.length; index += 2) {
+      headers.append(incoming.rawHeaders[index], incoming.rawHeaders[index + 1]);
+    }
+    const request = new Request(new URL(incoming.url || "/", `http://${hostname}:${port}`), {
+      method: incoming.method,
+      headers,
+      body: chunks.length ? Buffer.concat(chunks) : undefined
+    });
+    const response = await handleRequest(request);
+    outgoing.writeHead(response.status, Object.fromEntries(response.headers));
+    outgoing.end(Buffer.from(await response.arrayBuffer()));
+  } catch (error) {
+    outgoing.writeHead(500, { "content-type": "application/json; charset=utf-8" });
+    outgoing.end(JSON.stringify({ error: error instanceof Error ? error.message : "服务器发生意外错误。" }));
   }
 });
 
-console.log(`稍后阅读正在运行：http://${server.hostname}:${server.port}`);
+server.listen(port, hostname, () => {
+  const address = server.address();
+  console.log(`稍后阅读正在运行：http://${hostname}:${typeof address === "object" && address ? address.port : port}`);
+});
 
 process.on("SIGINT", () => {
-  server.stop();
+  server.close();
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-  server.stop();
+  server.close();
   process.exit(0);
 });
-
-setInterval(() => {
-  // Keep the local service alive when started without an attached terminal.
-}, 60_000);

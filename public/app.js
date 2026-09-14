@@ -19,6 +19,8 @@ const elements = {
   input: document.querySelector("#url-input"),
   list: document.querySelector("#item-list"),
   empty: document.querySelector("#empty-state"),
+  loading: document.querySelector("#loading-state"),
+  readingHint: document.querySelector("#reading-hint span"),
   template: document.querySelector("#item-template"),
   searchInput: document.querySelector("#search-input"),
   sortSelect: document.querySelector("#sort-select"),
@@ -108,7 +110,7 @@ function setActiveTab() {
   for (const tab of elements.tabs) {
     const active = tab.dataset.status === state.status;
     tab.classList.toggle("is-active", active);
-    tab.setAttribute("aria-selected", active ? "true" : "false");
+    tab.setAttribute("aria-pressed", active ? "true" : "false");
   }
   updateClearTrashButton();
 }
@@ -126,6 +128,9 @@ async function loadItems(options = {}) {
   }
 
   state.loading = true;
+  elements.loading.hidden = state.items.length > 0;
+  elements.empty.hidden = true;
+  elements.list.setAttribute("aria-busy", "true");
   setActiveTab();
   setStatus(options.silent ? "正在刷新..." : "正在加载...");
 
@@ -148,6 +153,8 @@ async function loadItems(options = {}) {
     setStatus(error.message, "error");
   } finally {
     state.loading = false;
+    elements.loading.hidden = true;
+    elements.list.setAttribute("aria-busy", "false");
     if (state.pendingLoad) {
       state.pendingLoad = false;
       await loadItems(options);
@@ -168,6 +175,7 @@ function renderItems() {
     const restoreButton = node.querySelector(".restore-button");
 
     node.dataset.id = item.id;
+    node.querySelector(".domain-mark").textContent = item.domain.slice(0, 1);
     node.querySelector(".domain-chip").textContent = item.domain;
     node.querySelector(".title").textContent = item.title;
     node.querySelector(".summary").textContent = item.summary;
@@ -184,8 +192,14 @@ function renderItems() {
 
 function renderEmptyState() {
   const hasQuery = state.query.trim().length > 0;
-  elements.emptyTitle.textContent = hasQuery ? "没有匹配的链接" : "这里还没有链接";
-  elements.emptyText.textContent = hasQuery ? "换个关键词试试。" : "当前列表为空。";
+  const copy = {
+    inbox: ["从一个好链接开始", "把想读的内容粘贴到上方，慢慢积攒你的阅读清单。", "打开后自动移入回收站，喜欢的内容可以留存。"],
+    kept: ["值得重读的，都留在这里", "点击链接旁的「留存」，把喜欢的内容留下来。", "留存的链接在打开后仍会保留，随时回来重读。"],
+    trash: ["回收站很干净", "读过或移除的链接会来到这里，需要时可以恢复。", "恢复会将链接放回收件箱；全部清空会永久删除。"]
+  }[state.status];
+  elements.emptyTitle.textContent = hasQuery ? "没有匹配的链接" : copy[0];
+  elements.emptyText.textContent = hasQuery ? "试试其他标题、摘要关键词或网址。" : copy[1];
+  elements.readingHint.textContent = copy[2];
 }
 
 function statusLabel(status) {
@@ -199,7 +213,7 @@ function statusLabel(status) {
 function listStatusMessage() {
   const label = statusLabel(state.status);
   if (!state.query.trim()) {
-    return label;
+    return `${label} · ${state.items.length} 个链接`;
   }
 
   return `${label} · ${state.items.length} 个匹配`;
@@ -350,6 +364,9 @@ async function saveFromForm(event) {
   const url = new FormData(elements.form).get("url");
   state.busy = true;
   elements.form.classList.add("is-busy");
+  elements.form.setAttribute("aria-busy", "true");
+  elements.form.querySelector("button").disabled = true;
+  updateClearTrashButton();
   setStatus("正在保存...");
 
   try {
@@ -368,6 +385,9 @@ async function saveFromForm(event) {
   } finally {
     state.busy = false;
     elements.form.classList.remove("is-busy");
+    elements.form.setAttribute("aria-busy", "false");
+    elements.form.querySelector("button").disabled = false;
+    updateClearTrashButton();
   }
 }
 

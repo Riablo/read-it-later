@@ -1,8 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { displayHost, domainLabelFromUrl, normalizeUrl } from "./domain";
-import type { DatabaseFile, FetchedMetadata, ItemListOptions, ItemStatus, ReadLaterItem } from "./types";
+import { displayHost, domainLabelFromUrl, normalizeUrl } from "./domain.ts";
+import type { DatabaseFile, FetchedMetadata, ItemListOptions, ItemStatus, ReadLaterItem } from "./types.ts";
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const defaultDataPath = join(rootDir, "data", "readlater.json");

@@ -1,5 +1,5 @@
-import { fetchReadlaterItem } from "./fetcher";
-import type { FetchedMetadata } from "./types";
+import { fetchReadlaterItem } from "./fetcher.ts";
+import type { FetchedMetadata } from "./types.ts";
 
 export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
   return fetchReadlaterItem(url, {

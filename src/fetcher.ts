@@ -1,4 +1,4 @@
-import type { FetchedMetadata } from "./types";
+import type { FetchedMetadata } from "./types.ts";
 
 const APP_NAME = "read-it-later";
 const DEFAULT_TIMEOUT_SECONDS = 10;
