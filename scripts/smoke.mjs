@@ -39,12 +39,20 @@ try {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
-  for (const [path, contentType] of [['/', 'text/html'], ['/styles.css', 'text/css'], ['/app.js', 'text/javascript'], ['/favicon.svg', 'image/svg+xml']]) {
+  for (const [path, contentType] of [['/', 'text/html'], ['/styles.css', 'text/css'], ['/app.js', 'text/javascript'], ['/favicon.svg', 'image/svg+xml'], ['/apple-touch-icon.png', 'image/png']]) {
     const response = await get(path);
     assert.equal(response.status, 200);
     assert.ok(response.headers.get('content-type').includes(contentType));
     assert.equal(response.headers.get('cache-control'), 'no-store');
   }
+  for (const path of ['/', '/save']) {
+    assert.match(await (await get(path)).text(), /<link rel="apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png">/);
+  }
+  const touchIcon = Buffer.from(await (await get('/apple-touch-icon.png')).arrayBuffer());
+  assert.deepEqual(touchIcon.subarray(0, 8), Buffer.from('89504e470d0a1a0a', 'hex'));
+  assert.equal(touchIcon.toString('ascii', 12, 16), 'IHDR');
+  assert.equal(touchIcon.readUInt32BE(16), 180);
+  assert.equal(touchIcon.readUInt32BE(20), 180);
   assert.equal((await get('/missing')).status, 404);
   assert.equal((await get('/api/missing')).status, 404);
   const oversized = await new Promise((resolve, reject) => {
